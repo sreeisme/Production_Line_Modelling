@@ -1,6 +1,6 @@
 # Dynamic Predictive Modelling of a Hydraulic Production Line (Bosch Project)
 
-This repository contains my work for the Bosch R&D project **“Generalisation of Dynamic Predictive Modelling Across Production Line.”**  
+This repository contains work for the Bosch R&D project **“Generalisation of Dynamic Predictive Modelling Across Production Line.”**  
 It builds predictive models for component health and system stability from multi-sensor hydraulic time-series and studies how well these models generalise across product categories.
 
 ---
