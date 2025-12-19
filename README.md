@@ -1,103 +1,81 @@
-# Dynamic Predictive Modelling of a Hydraulic Production Line (Bosch Project)
+# Dynamic Predictive Modelling for Hydraulic Systems
 
-This repository contains work for the Bosch R&D project **“Generalisation of Dynamic Predictive Modelling Across Production Line.”**  
-It builds predictive models for component health and system stability from multi-sensor hydraulic time-series and studies how well these models generalise across product categories.
-
----
+This repository contains an end-to-end R&D project focused on **"Generalisation of Dynamic Predictive Modelling Across Production Lines."** The project builds predictive models for component health and system stability using multi-sensor hydraulic time-series data. A key focus of the work is studying how well these models generalize across different operating conditions and product categories, simulating real-world industrial domain shifts.
 
 ## 1. Dataset
 
-- **Source:** UCI Machine Learning Repository –  
-  **“Condition Monitoring of Hydraulic Systems”**  
-  https://archive.ics.uci.edu/dataset/447/condition+monitoring+of+hydraulic+systems
-- Cycle-based time-series from multiple sensors:
-  - Pressures (PS1–PS6), flows (FS1–FS2), temperatures (TS1–TS4), vibration (VS1),
-    and efficiency / power channels (CE, CP, SE, EPS1).
-- Five labels per cycle (from `profile.txt`):
-  - **Cooler_Condition**, **Valve_Condition**, **Internal_Pump_Leakage**,  
-    **Hydraulic_Accumulator**, **Stable_Flag (0/1)**.
+The project utilizes the public **Condition Monitoring of Hydraulic Systems** dataset as a proxy for industrial production line data.
 
----
+- **Source:** [UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/447/condition+monitoring+of+hydraulic+systems)
+- **Data Structure:** Cycle-based time-series from multiple sensors, including:
+  - **Pressure:** PS1–PS6
+  - **Flow:** FS1–FS2
+  - **Temperature:** TS1–TS4
+  - **Vibration:** VS1
+  - **Efficiency/Power:** CE, CP, SE, EPS1
+- **Target Variables:** Five labels per cycle (derived from `profile.txt`):
+  - `Cooler_Condition`
+  - `Valve_Condition`
+  - `Internal_Pump_Leakage`
+  - `Hydraulic_Accumulator`
+  - `Stable_Flag` (Binary: 0/1)
 
 ## 2. Methodology
 
-1. **Data preparation**
-   - Load all sensor matrices, align cycles, and join with the five labels into a single table (`df_final`).
+### 2.1 Data Preparation
+- Loaded raw sensor matrices and aligned cycles.
+- Joined sensor data with the five target labels into a unified dataframe (`df_final`).
 
-2. **Feature engineering**
-   - For every sensor & cycle, compute compact **time-domain** and **frequency-domain** features  
-     (mean/std, RMS, crest factor, quantiles, lag-1 autocorr, entropy, skew/kurtosis, spectral energy, centroid, bandwidth, band powers).
-   - Concatenate across sensors → wide tabular feature matrix.
+### 2.2 Feature Engineering
+Comprehensive feature extraction was performed for every sensor and cycle, generating a wide tabular feature matrix:
+- **Time-domain:** Mean, Std Dev, RMS, Crest Factor, Quantiles, Lag-1 Autocorrelation, Entropy, Skewness, Kurtosis.
+- **Frequency-domain:** Spectral Energy, Spectral Centroid, Bandwidth, Band Powers.
 
-3. **Domain shift simulation**
-   - Create a synthetic `Product_Category` (Cat1 / Cat2) and apply controlled shifts to a subset of features in Cat2
-     to mimic a new product / setting.
+### 2.3 Domain Shift Simulation
+To simulate the challenge of deploying models to new production lines:
+- Created a synthetic `Product_Category` split (Cat1 / Cat2).
+- Applied controlled shifts to a subset of features in Cat2 to mimic "target domain" variance.
 
-4. **Modelling**
-   - **Baselines:** linear regression, polynomial regression, and one-feature curve fits.
-   - **Feature-based ML:** RandomForestRegressor and XGBRegressor on engineered features.
-   - **Sequence model:** LSTM on raw resampled sequences (n_cycles × timesteps × n_channels).
+### 2.4 Modelling Strategy
+- **Baselines:** Linear regression, polynomial regression, and simple one-feature curve fits.
+- **Feature-based ML:** `RandomForestRegressor` and `XGBRegressor` trained on engineered features.
+- **Sequence Models:** `LSTM` networks trained on raw resampled sequences (Dimensions: *n_cycles × timesteps × n_channels*).
 
-5. **Unsupervised analysis**
-   - KMeans and DBSCAN on feature space; simple hidden-state labelling (e.g. “early_failure” regime).
-   - Correlation and permutation-importance analyses for sensor/feature relevance.
-
----
+### 2.5 Unsupervised Analysis
+- **Clustering:** KMeans and DBSCAN applied to the feature space to identify operating regimes.
+- **Explainability:** Correlation analysis and permutation importance to identify critical sensors.
 
 ## 3. Key Results & Insights
 
-### 3.1 Predictive performance
+### 3.1 Predictive Performance
+* **Cooler Condition:** Highly predictable. One-feature curve fits achieved **R² ≈ 0.998** (RMSE ≈ 1.77).
+* **Hydraulic Accumulator:** Non-linear but learnable. One-feature curve fits achieved **R² ≈ 0.56**.
+* **Valve & Pump Leakage:** Moderate signal strength. Curve fits achieved **R² ≈ 0.50** and **0.76** respectively.
+* **System Stability (`Stable_Flag`):**
+    * **Challenge:** Simple baselines struggled (R² ≈ 0.26).
+    * **Solution:** Feature-based tree models outperformed deep learning for this specific task.
+        * **XGBoost:** RMSE ≈ 0.128, MAE ≈ 0.040
+        * **Random Forest:** RMSE ≈ 0.146, MAE ≈ 0.052
+        * **LSTM:** RMSE ≈ 0.243 (Underperformed, suggesting engineered features captured the necessary temporal structure).
 
-- **Cooler_Condition**
-  - Extremely predictable from engineered features: one-feature curve fit reaches **R² ≈ 0.998** (RMSE ≈ 1.77);  
-    after snapping to nearest valid grade the error is effectively **0**.
-- **Hydraulic_Accumulator**
-  - Non-linear but learnable: one-feature curve fit reaches **R² ≈ 0.56**;  
-    nearest-grade linear models also give high discrete performance.
-- **Internal_Pump_Leakage & Valve_Condition**
-  - Moderate signal: single-feature curve fits achieve **R² ≈ 0.76** and **≈ 0.50** respectively,  
-    indicating strong but non-linear relationships with a few key features.
-- **Stable_Flag**
-  - Hardest label in simple baselines: best curve-fit baseline only reaches **R² ≈ 0.26**.
-  - **Tree-based models on features perform much better:**  
-    - XGBoost: **RMSE ≈ 0.128, MAE ≈ 0.040**  
-    - Random Forest: **RMSE ≈ 0.146, MAE ≈ 0.052**
-  - **LSTM on raw sequences underperforms** vs these feature-based models for Stable_Flag  
-    (RMSE ≈ 0.243, MAE ≈ 0.135), suggesting that the engineered features already capture
-    most of the useful temporal structure for this task.
+### 3.2 Feature Importance & Regimes
+* **Critical Features:** Permutation importance highlighted higher-order statistics (Skew, Kurtosis, Crest Factor) in **PS2** (Pressure) and **FS1** (Flow), indicating that stability is defined by *waveform shape* changes rather than simple mean values.
+* **Clustering:** KMeans identified a distinct "Good" cluster (~1959 cycles) vs. a "Noisy" cluster (~246 cycles).
+* **Hidden States:** Analysis revealed an "incipient degradation" regime characterized by lower cooler efficiency (~41%) and mild valve degradation (~91%), allowing for early failure detection.
 
-### 3.2 Feature importance & regimes
-
-- Permutation importance for **Stable_Flag** shows that:
-  - Higher-order statistics of **PS2** (skew, kurtosis, peak-to-peak, crest factor),
-    **FS1** (kurtosis, skew) and **EPS1** band powers (low/mid/high),
-    plus **PS1** autocorrelation and band-high power,
-  - are the most influential features, pointing to subtle changes in **pressure and flow waveform shape**
-    rather than just mean levels.
-- **KMeans clustering** on features finds:
-  - One large, compact “good” cluster (~1959 cycles) and a smaller, noisy cluster (~246 cycles) with much higher within-cluster variance.
-- A simple **“early_failure” hidden state** derived from clustering shows:
-  - Lower average Cooler_Condition (~41 vs 100), mildly degraded Valve_Condition (~91),
-    higher Internal_Pump_Leakage (~0.67) and reduced accumulator pressure (~107),
-    capturing cycles in an **incipient degradation regime** rather than full failure.
-
-### 3.3 Domain adaptation (Cat1 → Cat2)
-
-- With a synthetic domain split (Cat1 = source, Cat2 = target):
-  - **Zero-shot transfer** (train on Cat1, test on Cat2) already achieves **AUC ≈ 0.955** for Stable_Flag.
-  - **Fine-tuning** (either freezing feature extractor and training only the head, or fine-tuning all layers)
-    produces very similar AUC/ACC/F1, suggesting the learned representations are fairly domain-robust.
-  - A simple **re-weight + fine-tune** strategy performs poorly (AUC ≈ 0.51, F1 ≈ 0.01),
-    highlighting that naïve re-weighting can harm performance more than it helps.
-
-Overall, **feature-based tree models** provide strong, interpretable baselines, especially for stability prediction, while the analysis of feature importance, clustering and domain shift offers a practical roadmap for adapting Bosch’s existing quality-prediction tool to new lines and products.
-
----
+### 3.3 Domain Adaptation (Cat1 → Cat2)
+* **Zero-Shot Transfer:** Models trained on Source (Cat1) and tested on Target (Cat2) achieved **AUC ≈ 0.955** for stability prediction.
+* **Fine-Tuning:** Freezing the feature extractor and retraining the head yielded similar performance to full fine-tuning.
+* **Insight:** Naïve re-weighting strategies harmed performance (AUC dropped to ≈ 0.51), suggesting robust feature representation is more effective than simple instance weighting for this data.
 
 ## 4. Skills Demonstrated
 
-- Time-series signal processing and feature generation for industrial sensor data  
-- Supervised learning with regression, tree ensembles, gradient boosting and LSTM sequence models  
-- Permutation importance, clustering and regime discovery for model interpretation  
-- Domain-shift analysis and simple domain-adaptation strategies  
-- End-to-end experiment design, evaluation, and documentation in a production-line R&D context
+* **Industrial Signal Processing:** Time-series feature generation for high-frequency sensor data.
+* **Supervised Learning:** Regression, Tree Ensembles (Random Forest, XGBoost), and Deep Learning (LSTM).
+* **Model Interpretation:** Permutation importance, clustering, and regime discovery.
+* **Domain Adaptation:** Analysis of model performance under simulated domain shifts.
+* **Experimental Design:** End-to-end evaluation and documentation for production-line quality prediction.
+
+---
+
+*This project was developed for academic and research purposes to demonstrate advanced predictive maintenance techniques.*
