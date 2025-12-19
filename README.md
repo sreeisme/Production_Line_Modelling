@@ -78,7 +78,7 @@ The notebook also builds correlation and importance heatmaps:
 
 ```text
 Production_Line_Modelling/
-├── data/                       # Input UCI Hydraulic dataset (PS1.txt, etc.)
+├── archive/                       # Input UCI Hydraulic dataset (PS1.txt, etc.)
 ├── Bosch_POC.ipynb             # Main R&D notebook
 ├── README.md                   # Project documentation
 └── requirements.txt            # Python dependencies
